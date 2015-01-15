@@ -1,25 +1,112 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PeerAssessment1"
+author: "me"
+date: "12 de enero de 2015"
+output: html_document
 ---
 
 
 ## Loading and preprocessing the data
 
+```{r, echo=TRUE}
 
+library(plyr)
+activity <- read.csv("activity.csv", stringsAsFactors=FALSE)
+act_day<-ddply(activity, .(date), summarize, total_steps=sum(steps))
+
+```
 
 ## What is mean total number of steps taken per day?
 
+```{r, echo=TRUE, results='asis'}
 
+hist(act_day[,2], main="Histogram of the total number of steps taken each day", col="green", xlab="Number of steps")
+mean_step<-mean(act_day[,2], na.rm=TRUE)
+median_step<-median(act_day[,2], na.rm=TRUE)
+
+rep<-rbind(mean_step, median_step)
+colnames(rep)<-c("Steps per day")
+rownames(rep)<-c("Mean", "Median")
+
+library(xtable)
+xt<-xtable(rep)
+print(xt, type="html")
+```
 
 ## What is the average daily activity pattern?
 
+```{r, echo=TRUE}
+
+act_inter<-ddply(activity, .(interval), summarize, total_steps=mean(steps, na.rm=TRUE))
+plot(act_inter, type="l", col="blue", ylab="Number of steps")
+
+```
+
+```{r, echo=TRUE}
+
+maxim<-act_inter[which(act_inter[,2]==max(act_inter[,2])),1]
+```
+The 5-minute interval which contains the maximum number of steps, on average across all the days in the dataset is `r maxim`.
 
 
 ## Imputing missing values
 
+```{r, echo=TRUE}
 
+na_tot<-dim(activity)[1]-dim(na.omit(activity))[1]
+```
+
+
+The total number of rows with missing values is `r na_tot`.
+
+```{r, echo=TRUE, results='asis'}
+#Imputing missing values by using median for each interval
+
+act_inter_med<-ddply(activity, .(interval), summarize, total_steps=median(steps, na.rm=TRUE))
+activity_full<-activity
+for(i in 1:dim(act_inter_med)[1])
+        {
+                activity_full[which((is.na(activity_full[,1]))&(activity_full[,3]==act_inter_med[i,1])),1]<-act_inter_med[i,2]
+        }
+
+act_day_full<-ddply(activity_full, .(date), summarize, total_steps=sum(steps))
+
+hist(act_day_full[,2], main="Histogram of the total number of steps taken each day (imputed data)", col="red", xlab="Number of steps")
+mean_stepf<-mean(act_day_full[,2], na.rm=TRUE)
+median_stepf<-median(act_day_full[,2], na.rm=TRUE)
+
+repf<-rbind(mean_stepf, median_stepf)
+colnames(repf)<-c("Steps per day")
+rownames(repf)<-c("Mean", "Median")
+
+library(xtable)
+xtf<-xtable(repf)
+print(xtf, type="html")
+
+```
+The mean and median differs from the estimates from the first part of the assignment.
+Imputing missing data makes the differences between the mean and median larger.
+
+```{r, echo=TRUE, results='asis'}
+repfim<-cbind(rep, repf)
+colnames(repfim)<-c("No imputed", "Imputed")
+xtfim<-xtable(repfim)
+print(xtfim, type="html")
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r, echo=TRUE}
+##Create a new factor variable in the dataset with two levels -- "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+
+activity_full<-mutate(activity_full, weekday=weekdays(as.Date(activity_full[,2])))
+activity_full[which(activity_full[,4] %in% c("lunes","martes","miércoles", "jueves", "viernes")),4]<-"weekday"
+activity_full[which(activity_full[,4] %in% c("sábado","domingo")),4]<-"weekend"
+
+library(ggplot2)
+
+act_week_full<-ddply(activity_full, .(interval, weekday), summarize, total_steps=sum(steps))
+
+qplot(interval, total_steps, data=act_week_full, geom=c("line"), facets=.~weekday, main="Differences in activity patterns between weekdays and weekends")        
+
+```
+
